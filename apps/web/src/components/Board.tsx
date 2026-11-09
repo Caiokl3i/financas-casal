@@ -131,6 +131,9 @@ function PersonCard(props: {
 function ItemRow({ item, editing, showPaid, actions }: { item: Item; editing: boolean; showPaid: boolean; actions: BoardActions }) {
   const [open, setOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  // "pago" muda na hora, sem esperar a resposta do servidor
+  const [paid, setPaid] = useState(item.paid);
+  useEffect(() => setPaid(item.paid), [item.paid]);
   useEffect(() => {
     if (!editing) { setOpen(false); setConfirmDel(false); }
   }, [editing]);
@@ -156,7 +159,7 @@ function ItemRow({ item, editing, showPaid, actions }: { item: Item; editing: bo
 
   return (
     <li
-      className={`${item.paid && showPaid ? 'paid' : ''}${editing ? ' clickable' : ''}`}
+      className={`${paid && showPaid ? 'paid' : ''}${editing ? ' clickable' : ''}`}
       onClick={editing ? () => setOpen(true) : undefined}
     >
       <span className="label">
@@ -164,10 +167,13 @@ function ItemRow({ item, editing, showPaid, actions }: { item: Item; editing: bo
           <input
             type="checkbox"
             className="check"
-            checked={item.paid}
+            checked={paid}
             aria-label={`Marcar ${label} como pago`}
             onClick={(e) => e.stopPropagation()}
-            onChange={(e) => actions.updateItem(item.id, { paid: e.target.checked })}
+            onChange={(e) => {
+              setPaid(e.target.checked);
+              actions.updateItem(item.id, { paid: e.target.checked });
+            }}
           />
         )}
         <span className={name ? undefined : 'off'}>{label}</span>

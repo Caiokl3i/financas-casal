@@ -6,6 +6,43 @@
 
 ---
 
+## 0. Como ficou implementado (vale mais que as seções abaixo onde houver diferença)
+
+Durante a implementação três decisões mudaram em relação ao plano original:
+
+1. **Sem Prisma e sem senha do banco.** A API (NestJS) fala com o Supabase via `@supabase/supabase-js` usando só a *publishable key* + o token do usuário logado. Quem protege os dados são as regras **RLS** do Postgres: só Caio e Júlia (e-mails cadastrados em `people`) leem e escrevem. Nenhum segredo fica na Vercel.
+2. **Primeiro acesso pelo site.** Não é preciso criar usuários no painel do Supabase. Na tela de login há a aba **"Primeiro acesso"**: a API chama a função `public.first_access(email, senha)`, que só aceita os e-mails da tabela `people` e só uma vez por e-mail (a conta nasce confirmada, sem e-mail de confirmação). Um gatilho em `auth.users` bloqueia qualquer cadastro de outro e-mail.
+3. **Sem pacote compartilhado / workspaces.** `apps/api` e `apps/web` são independentes (deploy mais simples). O cálculo dos totais existe na API (`apps/api/src/common/totals.ts`) e uma cópia no front (`apps/web/src/lib/api.ts`) só para atualizar a tela na hora.
+
+Estrutura real:
+
+```
+supabase/migrations/0001_init.sql   tabelas, RLS, auditoria, ensure_month()
+supabase/migrations/0002_auth.sql   bloqueio de cadastro + first_access()
+supabase/migrations/0003_seed.sql   Caio, Júlia e os valores do artefato
+apps/api/src/main.ts                entrada (Vercel preset NestJS)
+apps/api/src/auth.ts                AuthGuard (valida token no Supabase e confere `people`)
+apps/api/src/supabase.ts            clientes supabase-js e conversão de erros
+apps/api/src/budget.service.ts      regras de mês, modelo, itens e destinos
+apps/api/src/controllers.ts         rotas (seção 8.2) + POST /auth/first-access
+apps/web/src/styles/global.css      CSS do artefato + elementos novos
+apps/web/src/components/Board.tsx   resumo, cartões, linhas, divisão da sobra
+apps/web/src/pages/                 LoginPage, BoardPage (mês e modelo)
+```
+
+Variáveis de ambiente (todas públicas):
+
+| App | Variável |
+|---|---|
+| api | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `ALLOWED_ORIGIN` |
+| web | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_API_URL` |
+
+Rodar localmente: `cd apps/api && npm i && npm run build && node --env-file=.env dist/main.js` e `cd apps/web && npm i && npm run dev` (copiar os `.env.example`). Testes: `npm test` em cada app.
+
+Migrações: aplicadas no projeto Supabase **Finance-lovers** (`pynxfpvelswhzdudfuhb`); para recriar em outro projeto, rodar os três SQL em ordem no SQL Editor.
+
+---
+
 ## Sumário
 
 1. [Visão geral e objetivos](#1-visão-geral-e-objetivos)
